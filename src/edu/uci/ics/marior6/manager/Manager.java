@@ -66,6 +66,7 @@ public class Manager {
                         writer.flush();
                     }
                 }
+                System.out.println("Done initializing ST and PT...");
                 //go thru input file now
                 while ((line = reader2.readLine()) != null) {
                     if (!line.isEmpty()) {
@@ -86,7 +87,7 @@ public class Manager {
     private void executeInitialization(String line) {
         String[] line1 = line.split(" ");
         System.out.println(Arrays.toString(line1));
-        //TODO: initialize ST and PT from files
+        //initialize ST and PT from files
         if (!lineChange) {
             //initialize ST
             for (int i = 0; i <= line1.length - 3; i = i + 3) {
@@ -94,6 +95,7 @@ public class Manager {
                 segment_size = Integer.parseInt(line1[i + 1]);
                 frame = Integer.parseInt(line1[i + 2]);
                 System.out.println("S: " + segment + ", Z: " + segment_size + ", F: " + frame);
+                if (frame < 0) System.out.println("PT is not resident!");
                 initST(segment, segment_size, frame);
             }
             lineChange = true;
@@ -104,6 +106,7 @@ public class Manager {
                 page = Integer.parseInt(line1[j + 1]);
                 frame = Integer.parseInt(line1[j + 2]);
                 System.out.println("S: " + segment + ", P: " + page + ", F: " + frame);
+                if (frame < 0) System.out.println("Page is not resident!");
                 initPT(segment, page, frame);
             }
             lineChange = false;
@@ -113,7 +116,7 @@ public class Manager {
     private void executeTranslation(String line) throws IOException{
         String[] vAddresses = line.split(" ");
         System.out.println(Arrays.toString(vAddresses));
-        //TODO: translate VA to PA
+        //translate VA to PA
         for (String vAddress : vAddresses) {
             int physicalAddress = VAtoSPW(Integer.parseInt(vAddress));
             System.out.println("PA: " + physicalAddress);
@@ -130,6 +133,7 @@ public class Manager {
             bitMap[i] = 0;
         }
         //initialize physicalMemory
+        //FIXME: should i start this from i = 2 since ST takes first two frames???
         for (int i = 0; i < PHYSICAL_MEMORY_SIZE; i++) {
             physicalMemory[i] = 0;
         }
@@ -145,18 +149,14 @@ public class Manager {
     private void initST(int segment, int segment_size, int frame) {
         physicalMemory[2 * segment] = segment_size;
         physicalMemory[(2 * segment) + 1] = frame;
-//        if(frame != PAGE_FAULT) {
-//            //ST takes two frames
-//            allocateBitmap(frame);
-//            allocateBitmap(frame + FRAME_SIZE);
-//        }
     }
 
     private void initPT(int segment, int page, int frame) {
-        physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] = frame;
-//        if(frame != PAGE_FAULT) {
-//            allocateBitmap(frame);
-//        }
+        if (physicalMemory[(2 * segment) + 1] < 0) {
+            disk[Math.abs(physicalMemory[(2 * segment) + 1])][page] = frame;
+        } else {
+            physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] = frame;
+        }
     }
 
     private int VAtoSPW(int virtualAddress) {
@@ -169,24 +169,54 @@ public class Manager {
         if (pw >= physicalMemory[2 * segment]) {
             System.out.println("VA is outside the segment boundary! ERROR...");
             return PAGE_FAULT;
-        } else {
-            return physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] * FRAME_SIZE + word;
         }
+        if (physicalMemory[(2 * segment) + 1] < 0) {
+            System.out.println("Page Fault - PT is not resident!");
+            int f = findFreeFrame();
+            if (f == PAGE_FAULT) return PAGE_FAULT;
+            readBlock(physicalMemory[(2 * segment) + 1], f * FRAME_SIZE);
+            //Update ST entry
+            physicalMemory[(2 * segment) + 1] = f;
+        } else if (physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] < 0) {
+            System.out.println("Page Fault = Page is not resident!");
+            int f = findFreeFrame();
+            if (f == PAGE_FAULT) return PAGE_FAULT;
+            readBlock(physicalMemory[(2 * segment) + 1], f * FRAME_SIZE);
+            //Update PT entry
+            physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] = f;
+        }
+        return physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] * FRAME_SIZE + word;
+
+//        BASIC VERSION
+//        if (pw >= physicalMemory[2 * segment]) {
+//            System.out.println("VA is outside the segment boundary! ERROR...");
+//            return PAGE_FAULT;
+//        } else {
+//            return physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] * FRAME_SIZE + word;
+//        }
     }
 
-    private int readBlock(int b, int m) {
-        int p = physicalMemory[segment];
-        int w = physicalMemory[physicalMemory[segment] + page];
-        if (p == PAGE_FAULT || p == EMPTY) {    //check for pageFault or empty segment
-            System.out.println("Read: Error - 'p' page fault");
-            //FIXME: return error
-        }
-        if (w == PAGE_FAULT || w == EMPTY) {    //check for pageFault or empty page
-            System.out.println("Read: Error - 'w' page fault");
-            //FIXME: return error
-        }
+    private void readBlock(int b, int m) {
+        b = Math.abs(b);
+        System.arraycopy(disk[b], 0, physicalMemory, m, FRAME_SIZE);
+        System.out.println("Done reading block...");
+    }
 
-        return w + word;
+    private int findFreeFrame() {
+        int freeFrame = PAGE_FAULT;
+        for (int i = 0; i < bitMap.length; i++) {
+            if (bitMap[i] == EMPTY) {
+                freeFrame = i;
+                break;
+            }
+        }
+        allocateBitmap(freeFrame);
+        return freeFrame;
+    }
+
+    private void allocateBitmap(int frame) {
+        //update frame taken
+        bitMap[frame] = 1;
     }
 
     private void display() {
