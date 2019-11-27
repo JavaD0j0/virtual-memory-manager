@@ -6,15 +6,10 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 
 public class Manager {
-    public static final int SEGMENT_SIZE            = 512;
-    public static final int PAGE_SIZE               = 1024;
-    public static final int WORD_SIZE               = 512;
     public static final int FRAME_SIZE              = 512;
     public static final int FRAME_NUMBER            = 1024;
     public static final int PHYSICAL_MEMORY_SIZE    = FRAME_NUMBER * FRAME_SIZE;
-    public static final int PHYSICAL_ADDRESS_SIZE   = 19;
     public static final int BITMAP_SIZE             = 32;
-    public static final int BITMAP_NUMBER           = FRAME_NUMBER / BITMAP_SIZE;
     public static final int PAGE_FAULT              = -1;
     public static final int EMPTY                   = 0;
 
@@ -66,7 +61,7 @@ public class Manager {
                         writer.flush();
                     }
                 }
-                System.out.println("Done initializing ST and PT...");
+                //System.out.println("Done initializing ST and PT...");
                 //go thru input file now
                 while ((line = reader2.readLine()) != null) {
                     if (!line.isEmpty()) {
@@ -74,6 +69,7 @@ public class Manager {
                         writer.flush();
                     }
                 }
+                manager.display();
                 reader1.close();
                 reader2.close();
                 writer.close();
@@ -125,7 +121,7 @@ public class Manager {
     }
 
     private void init() {
-        System.out.println("Starting to initialize data structures...");
+        //System.out.println("Starting to initialize data structures...");
         //initialize bitMap (first/second frames are reserved to ST)
         bitMap[0] = 1;
         bitMap[1] = 1;
@@ -133,7 +129,6 @@ public class Manager {
             bitMap[i] = 0;
         }
         //initialize physicalMemory
-        //FIXME: should i start this from i = 2 since ST takes first two frames???
         for (int i = 0; i < PHYSICAL_MEMORY_SIZE; i++) {
             physicalMemory[i] = 0;
         }
@@ -143,12 +138,16 @@ public class Manager {
                 disk[i][j] = 0;
             }
         }
-        System.out.println("DONE initializing data structures!");
+        //System.out.println("DONE initializing data structures!");
     }
 
     private void initST(int segment, int segment_size, int frame) {
         physicalMemory[2 * segment] = segment_size;
         physicalMemory[(2 * segment) + 1] = frame;
+        if (frame >= 0) {
+            //int f = findFreeFrame();
+            allocateBitmap(frame);
+        }
     }
 
     private void initPT(int segment, int page, int frame) {
@@ -156,11 +155,15 @@ public class Manager {
             disk[Math.abs(physicalMemory[(2 * segment) + 1])][page] = frame;
         } else {
             physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] = frame;
+            if (frame >= 0) {
+                //int f = findFreeFrame();
+                allocateBitmap(frame);
+            }
         }
     }
 
     private int VAtoSPW(int virtualAddress) {
-        System.out.println("Translating from VA: " + virtualAddress + " to S,P,W...");
+        //System.out.println("Translating from VA: " + virtualAddress + " to S,P,W...");
         segment = virtualAddress >> 18;
         word = virtualAddress & 0x1FF;
         page = (virtualAddress >> 9) & 0x1FF;
@@ -199,7 +202,7 @@ public class Manager {
     private void readBlock(int b, int m) {
         b = Math.abs(b);
         System.arraycopy(disk[b], 0, physicalMemory, m, FRAME_SIZE);
-        System.out.println("Done reading block...");
+        //System.out.println("Done reading block...");
     }
 
     private int findFreeFrame() {
@@ -220,7 +223,13 @@ public class Manager {
     }
 
     private void display() {
-        System.out.println("PA: " + Arrays.toString(physicalMemory));
-        System.out.println("BM: " + Arrays.toString(bitMap));
+        System.out.print("BitMap (frames taken): ");
+        for (int i = 0; i < bitMap.length; i++) {
+            if (bitMap[i] != EMPTY) {
+                System.out.print(i + " ");
+            }
+        }
+        //System.out.println("PA: " + Arrays.toString(physicalMemory));
+        //System.out.println("BM: " + Arrays.toString(bitMap));
     }
 }
