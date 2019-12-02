@@ -180,7 +180,8 @@ public class Manager {
             readBlock(physicalMemory[(2 * segment) + 1], f * FRAME_SIZE);
             //Update ST entry
             physicalMemory[(2 * segment) + 1] = f;
-        } else if (physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] < 0) {
+        }
+        if (physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] < 0) {
             System.out.println("Page Fault = Page is not resident!");
             int f = findFreeFrame();
             if (f == PAGE_FAULT) return PAGE_FAULT;
