@@ -9,7 +9,6 @@ public class Manager {
     public static final int FRAME_SIZE              = 512;
     public static final int FRAME_NUMBER            = 1024;
     public static final int PHYSICAL_MEMORY_SIZE    = FRAME_NUMBER * FRAME_SIZE;
-    public static final int BITMAP_SIZE             = 32;
     public static final int PAGE_FAULT              = -1;
     public static final int EMPTY                   = 0;
 
@@ -37,7 +36,7 @@ public class Manager {
         //initialize data structures
         manager.init();
         try{
-            file = new File(path + "\\output.txt\\");
+            file = new File(path + "\\output-no-dp.txt\\");
             if(file.exists()) {
                 if(file.createNewFile()) {
                     System.out.println("Creating new output file...");
@@ -125,7 +124,7 @@ public class Manager {
         //initialize bitMap (first/second frames are reserved to ST)
         bitMap[0] = 1;
         bitMap[1] = 1;
-        for (int i = 2; i < BITMAP_SIZE; i++) {
+        for (int i = 2; i < FRAME_NUMBER; i++) {
             bitMap[i] = 0;
         }
         //initialize physicalMemory
@@ -155,10 +154,10 @@ public class Manager {
             disk[Math.abs(physicalMemory[(2 * segment) + 1])][page] = frame;
         } else {
             physicalMemory[physicalMemory[(2 * segment) + 1] * FRAME_SIZE + page] = frame;
-            if (frame >= 0) {
-                //int f = findFreeFrame();
-                allocateBitmap(frame);
-            }
+        }
+        if (frame >= 0) {
+            //int f = findFreeFrame();
+            allocateBitmap(frame);
         }
     }
 
